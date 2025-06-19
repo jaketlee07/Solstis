@@ -22,11 +22,21 @@ CHAT_TEMPLATE = '''
         input[type=text] { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #ccc; }
         button { padding: 10px 18px; border: none; background: #2a7ae2; color: #fff; border-radius: 4px; cursor: pointer; }
         button:disabled { background: #aaa; }
+        .name-form { text-align: center; margin-bottom: 20px; }
+        .name-form input { width: 200px; margin-right: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Solstis Assistant</h2>
+        {% if not session.get('user_name') %}
+        <div class="name-form">
+            <form method="post" action="/set_name">
+                <input type="text" name="user_name" placeholder="What's your name?" required />
+                <button type="submit">Start Chat</button>
+            </form>
+        </div>
+        {% else %}
         <div class="chat-box" id="chat-box">
             {% for msg in history %}
                 <div class="msg {{ msg['role'] }}">{{ msg['content'] }}</div>
@@ -39,22 +49,31 @@ CHAT_TEMPLATE = '''
         <form method="post" action="/clear" style="margin-top:10px;">
             <button type="submit" style="background:#e22;">Clear Conversation</button>
         </form>
+        {% endif %}
     </div>
     <script>
         // Auto-scroll chat box
         var chatBox = document.getElementById('chat-box');
-        chatBox.scrollTop = chatBox.scrollHeight;
+        if (chatBox) {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     </script>
 </body>
 </html>
 '''
 
 def get_assistant():
+    user_name = session.get('user_name', 'there')
     if 'history' not in session:
         session['history'] = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
-    assistant = SolstisAssistant()
+        # Add initial greeting
+        assistant = SolstisAssistant(user_name)
+        initial_greeting = assistant.get_initial_greeting()
+        session['history'].append({"role": "assistant", "content": initial_greeting})
+    
+    assistant = SolstisAssistant(user_name)
     assistant.conversation_history = session.get('history', [
         {"role": "system", "content": SYSTEM_PROMPT}
     ])
@@ -62,12 +81,27 @@ def get_assistant():
 
 @app.route('/', methods=['GET'])
 def index():
-    history = session.get('history', [
-        {"role": "system", "content": SYSTEM_PROMPT}
-    ])
+    history = session.get('history', [])
     # Only show user/assistant messages
     filtered = [m for m in history if m['role'] in ('user', 'assistant')]
     return render_template_string(CHAT_TEMPLATE, history=filtered)
+
+@app.route('/set_name', methods=['POST'])
+def set_name():
+    user_name = request.form.get('user_name', '').strip()
+    if not user_name:
+        user_name = 'there'
+    session['user_name'] = user_name
+    
+    # Initialize conversation with greeting
+    assistant = SolstisAssistant(user_name)
+    initial_greeting = assistant.get_initial_greeting()
+    session['history'] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "assistant", "content": initial_greeting}
+    ]
+    
+    return redirect(url_for('index'))
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -82,10 +116,29 @@ def chat():
 
 @app.route('/clear', methods=['POST'])
 def clear():
+    user_name = session.get('user_name', 'there')
+    assistant = SolstisAssistant(user_name)
+    initial_greeting = assistant.get_initial_greeting()
     session['history'] = [
-        {"role": "system", "content": SYSTEM_PROMPT}
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "assistant", "content": initial_greeting}
     ]
     return redirect(url_for('index'))
 
 if __name__ == "__main__":
-    app.run(debug=True) 
+    # Development vs Production settings
+    debug_mode = os.getenv("FLASK_ENV") == "development"
+    host = os.getenv("FLASK_HOST", "0.0.0.0")
+    port = int(os.getenv("FLASK_PORT", 5000))
+    
+    print(f"Starting Solstis Web Server...")
+    print(f"Environment: {'Development' if debug_mode else 'Production'}")
+    print(f"Host: {host}")
+    print(f"Port: {port}")
+    print(f"Debug: {debug_mode}")
+    
+    app.run(
+        host=host,
+        port=port,
+        debug=debug_mode
+    ) 

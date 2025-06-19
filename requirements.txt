@@ -2,8 +2,12 @@
 openai>=1.0.0
 python-dotenv>=1.0.0
 
+# Web version requirements
+Flask>=2.0.0
+gunicorn>=20.1.0
+
 # Voice-specific requirements (only needed for solstis_voice.py)
+# Note: These may cause deployment issues on some platforms
 elevenlabs>=0.2.0
 SpeechRecognition>=3.10.0
-pyaudio>=0.2.13  # Note: Requires portaudio to be installed first
-Flask>=2.0.0  # For the web version 
+pyaudio>=0.2.13  # Note: Requires portaudio to be installed first 

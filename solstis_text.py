@@ -10,6 +10,9 @@ client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM_PROMPT = """You are Solstis, a calm, helpful, and reassuring AI assistant that provides step-by-step first-aid instructions during minor health emergencies.
 
+IMPORTANT: When starting a new conversation, always begin with this exact greeting:
+"Hey [name]. I'm here to help. If this is a life-threatening emergency, please call 911 immediately. Otherwise, I'll guide you step-by-step. Can you tell me what happened?"
+
 Your communication style:
 - Be concise and direct while maintaining a supportive tone
 - Always begin by checking for life-threatening symptoms
@@ -33,10 +36,16 @@ SOLSTIS: Remove any rings, then rinse the wound under cool water. Let me know wh
 Always maintain this concise, supportive tone while providing clear medical guidance."""
 
 class SolstisAssistant:
-    def __init__(self):
+    def __init__(self, user_name="there"):
+        self.user_name = user_name
         self.conversation_history = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
+        self.has_greeted = False
+    
+    def get_initial_greeting(self):
+        """Get the initial greeting message"""
+        return f"Hey {self.user_name}. I'm here to help. If this is a life-threatening emergency, please call 911 immediately. Otherwise, I'll guide you step-by-step. Can you tell me what happened?"
     
     def ask(self, user_input):
         print(f"You: {user_input}")
@@ -60,12 +69,25 @@ class SolstisAssistant:
         self.conversation_history = [
             {"role": "system", "content": SYSTEM_PROMPT}
         ]
+        self.has_greeted = False
 
 def run():
     print("Solstis Assistant — Type your message or 'quit' to exit.\n")
-    #print("Example: 'I cut my finger with a kitchen knife. It's bleeding a lot.'\n")
     
-    assistant = SolstisAssistant()
+    # Get user's name
+    user_name = input("What's your name? ").strip()
+    if not user_name:
+        user_name = "there"
+    
+    assistant = SolstisAssistant(user_name)
+    
+    # Display initial greeting
+    initial_greeting = assistant.get_initial_greeting()
+    print(f"\nSolstis: {initial_greeting}\n")
+    
+    # Add the greeting to conversation history
+    assistant.conversation_history.append({"role": "assistant", "content": initial_greeting})
+    assistant.has_greeted = True
     
     while True:
         try:
@@ -78,6 +100,11 @@ def run():
             if user_input.lower() == 'clear':
                 assistant.clear_history()
                 print("\nConversation history cleared.\n")
+                # Show greeting again after clear
+                initial_greeting = assistant.get_initial_greeting()
+                print(f"Solstis: {initial_greeting}\n")
+                assistant.conversation_history.append({"role": "assistant", "content": initial_greeting})
+                assistant.has_greeted = True
                 continue
                 
             if not user_input:
