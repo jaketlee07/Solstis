@@ -8,7 +8,8 @@ import json
 app = Flask(__name__)
 CORS(app, origins=[
     "http://localhost:3000",
-    "https://your-vercel-app.vercel.app"  # Replace with your actual Vercel URL
+    "https://solstis-frontend.onrender.com",
+    "https://*.onrender.com"
 ])
 
 # Configure OpenAI

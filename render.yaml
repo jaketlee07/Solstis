@@ -1,0 +1,24 @@
+services:
+  # Backend API
+  - type: web
+    name: solstis-api
+    env: python
+    plan: free
+    buildCommand: pip install -r api/requirements.txt
+    startCommand: cd api && gunicorn app:app
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.9.18
+
+  # Frontend React App
+  - type: web
+    name: solstis-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://solstis-api.onrender.com 
