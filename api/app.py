@@ -286,7 +286,11 @@ def text_to_speech():
         ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
         VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')  # Default voice
         
+        print(f"TTS Debug: API Key present: {bool(ELEVENLABS_API_KEY)}")
+        print(f"TTS Debug: Voice ID: {VOICE_ID}")
+        
         if not ELEVENLABS_API_KEY:
+            print("TTS Error: ElevenLabs API key not configured")
             return jsonify({'error': 'ElevenLabs API key not configured'}), 500
         
         # ElevenLabs API call
@@ -298,7 +302,7 @@ def text_to_speech():
             "xi-api-key": ELEVENLABS_API_KEY
         }
         
-        data = {
+        payload = {
             "text": text,
             "model_id": "eleven_monolingual_v1",
             "voice_settings": {
@@ -307,7 +311,10 @@ def text_to_speech():
             }
         }
         
-        response = requests.post(url, json=data, headers=headers)
+        print(f"TTS Debug: Making request to ElevenLabs")
+        response = requests.post(url, json=payload, headers=headers)
+        
+        print(f"TTS Debug: Response status: {response.status_code}")
         
         if response.status_code == 200:
             # Create temporary file
@@ -317,16 +324,31 @@ def text_to_speech():
             
             return send_file(temp_file_path, mimetype='audio/mpeg')
         else:
-            return jsonify({'error': f'ElevenLabs API error: {response.status_code}'}), 500
+            error_msg = f'ElevenLabs API error: {response.status_code} - {response.text}'
+            print(f"TTS Error: {error_msg}")
+            return jsonify({'error': error_msg}), 500
             
     except Exception as e:
-        print(f"TTS error: {e}")
-        return jsonify({'error': 'Failed to generate speech'}), 500
+        error_msg = f"TTS error: {str(e)}"
+        print(error_msg)
+        return jsonify({'error': error_msg}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/tts-test', methods=['GET'])
+def tts_test():
+    """Test TTS configuration"""
+    ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+    VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')
+    
+    return jsonify({
+        'elevenlabs_configured': bool(ELEVENLABS_API_KEY),
+        'voice_id': VOICE_ID,
+        'api_key_length': len(ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else 0
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
