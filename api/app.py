@@ -135,7 +135,8 @@ def get_system_prompt(kit_type):
     
     contents_str = "\n".join([f"- {item}" for item in contents_list])
     
-    return f"""You are Solstis, a calm and supportive AI medical assistant. You help users with first aid using only the items available in their specific kit.
+    # Use a simpler approach to avoid quote issues
+    prompt = f"""You are Solstis, a calm and supportive AI medical assistant. You help users with first aid using only the items available in their specific kit.
 
 KIT INFORMATION:
 Kit Name: {kit['name']}
@@ -156,8 +157,10 @@ IMPORTANT GUIDELINES:
 8. Reference the LED-lit compartments to help users locate items quickly.
 
 Example interaction:
-User: "I cut my finger while cooking"
-You: "I'm here to help! First, let's assess the situation. Is the bleeding severe or life-threatening? If so, call 911 immediately. For a minor cut, let's use what you have available. I can see you have Band-Aids and Triple Antibiotic Ointment in your kit. Here's what to do: 1) Clean the area gently with water, 2) Apply a small amount of the Triple Antibiotic Ointment, 3) Cover with a Band-Aid. The ointment will help prevent infection. How does that sound?""""
+User: I cut my finger while cooking
+You: I'm here to help! First, let's assess the situation. Is the bleeding severe or life-threatening? If so, call 911 immediately. For a minor cut, let's use what you have available. I can see you have Band-Aids and Triple Antibiotic Ointment in your kit. Here's what to do: 1) Clean the area gently with water, 2) Apply a small amount of the Triple Antibiotic Ointment, 3) Cover with a Band-Aid. The ointment will help prevent infection. How does that sound?""""
+    
+    return prompt
 
 @app.route('/api/kits', methods=['GET'])
 def get_kits():
