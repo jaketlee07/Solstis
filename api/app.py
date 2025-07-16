@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import openai
 import os
 from datetime import datetime
 import json
+import requests
+import tempfile
 
 app = Flask(__name__)
 CORS(app, origins=[
@@ -269,6 +271,57 @@ def clear_conversation():
         conversations[user_name]['messages'] = []
     
     return jsonify({'status': 'success'})
+
+@app.route('/api/tts', methods=['POST'])
+def text_to_speech():
+    """Convert text to speech using ElevenLabs"""
+    data = request.get_json()
+    text = data.get('text')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    try:
+        # ElevenLabs API configuration
+        ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+        VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')  # Default voice
+        
+        if not ELEVENLABS_API_KEY:
+            return jsonify({'error': 'ElevenLabs API key not configured'}), 500
+        
+        # ElevenLabs API call
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+        
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+        
+        data = {
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+            }
+        }
+        
+        response = requests.post(url, json=data, headers=headers)
+        
+        if response.status_code == 200:
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+                temp_file.write(response.content)
+                temp_file_path = temp_file.name
+            
+            return send_file(temp_file_path, mimetype='audio/mpeg')
+        else:
+            return jsonify({'error': f'ElevenLabs API error: {response.status_code}'}), 500
+            
+    except Exception as e:
+        print(f"TTS error: {e}")
+        return jsonify({'error': 'Failed to generate speech'}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
