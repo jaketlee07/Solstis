@@ -1,0 +1,10 @@
+# Web deployment requirements (no voice dependencies)
+openai>=1.0.0
+python-dotenv>=1.0.0
+Flask>=2.0.0
+gunicorn>=20.1.0
+elevenlabs>=0.2.0
+SpeechRecognition>=3.10.0
+
+# Note: pyaudio is excluded for web deployment
+# Voice features will be disabled in production 
