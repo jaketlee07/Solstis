@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import VoiceRecorder from './VoiceRecorder';
-import VoicePlayer from './VoicePlayer';
 import MessageList from './MessageList';
 import './Chat.css';
 
