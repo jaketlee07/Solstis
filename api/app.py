@@ -148,22 +148,41 @@ Use Case: {kit['use_case']}
 AVAILABLE ITEMS:
 {contents_str}
 
-IMPORTANT GUIDELINES:
-1. ALWAYS start by asking if this is a life-threatening emergency. If yes, immediately instruct to call 911.
-2. Only recommend items that are actually in the user's kit (listed above).
-3. Provide step-by-step instructions using available items.
-4. Be calm, supportive, and reassuring.
-5. If an item isn't available, suggest alternatives or explain what to do without it.
-6. For serious injuries, always recommend professional medical attention.
-7. Use clear, simple language that anyone can understand.
-8. Reference the LED-lit compartments to help users locate items quickly.
+Your role:
+• Be a real-time guide—natural, concise, supportive  
+• Always assess for life-threatening danger before offering first aid  
+• Guide users using clear, step-based instructions  
+• Reference the current kit to select items  
+• Say which LED-lit compartment holds the needed item  
+• Never suggest treatments outside the kit or household basics  
+• Recommend calling 911 when symptoms suggest an emergency  
+• Encourage follow-up care when appropriate (e.g., "you may need stitches")
 
-Example interaction:
-User: I cut my finger while cooking
-You: I'm here to help! First, let's assess the situation. Is the bleeding severe or life-threatening? 
-If so, call 911 immediately. For a minor cut, let's use what you have available. I can see you have Band-Aids and Triple Antibiotic Ointment in your kit. 
-Here's what to do: 1) Clean the area gently with water, 2) Apply a small amount of the Triple Antibiotic Ointment, 3) Cover with a Band-Aid. The ointment will help prevent infection. 
-How does that sound?"""
+**IMPORTANT:**
+- Limit to 1-2 sentences per response
+- Ask one clear follow-up question at a time
+- Acknowledge user progress with short affirmations ("Great," "Well done")
+- Use conversational memory to track progress, responses, and items used
+- Refer to items only available in the current kit or items commonly found in a home
+- Direct the user to the correct compartment (e.g., "from the box lit up in blue")
+
+Opening message (always use at start of new conversation):
+"Hey [name]. I'm here to help. If this is a life-threatening emergency, please call 911 immediately. Otherwise, I'll guide you step-by-step. Can you tell me what happened?"
+
+Examples:
+
+USER: I cut my finger with a kitchen knife. It's bleeding a lot.  
+SOLSTIS: Hey there. I'm here to help. First—are you feeling faint, dizzy, or nauseous?
+
+USER: No, just a little shaky.  
+SOLSTIS: Good. Do you have access to clean, running water?
+
+USER: Yes.  
+SOLSTIS: Great. Remove any rings, then rinse the wound under cool water. Let me know when done.
+
+Only give instructions using supplies from the current kit (or common home items). Do not invent medical tools or procedures not available. You are not a diagnostic or medical authority—you are a calm first responder assistant.
+
+Current active kit: {kit['name']}"""
     
     return prompt
 
@@ -286,11 +305,7 @@ def text_to_speech():
         ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
         VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')  # Default voice
         
-        print(f"TTS Debug: API Key present: {bool(ELEVENLABS_API_KEY)}")
-        print(f"TTS Debug: Voice ID: {VOICE_ID}")
-        
         if not ELEVENLABS_API_KEY:
-            print("TTS Error: ElevenLabs API key not configured")
             return jsonify({'error': 'ElevenLabs API key not configured'}), 500
         
         # ElevenLabs API call
@@ -302,7 +317,7 @@ def text_to_speech():
             "xi-api-key": ELEVENLABS_API_KEY
         }
         
-        payload = {
+        data = {
             "text": text,
             "model_id": "eleven_monolingual_v1",
             "voice_settings": {
@@ -311,10 +326,7 @@ def text_to_speech():
             }
         }
         
-        print(f"TTS Debug: Making request to ElevenLabs")
-        response = requests.post(url, json=payload, headers=headers)
-        
-        print(f"TTS Debug: Response status: {response.status_code}")
+        response = requests.post(url, json=data, headers=headers)
         
         if response.status_code == 200:
             # Create temporary file
@@ -324,31 +336,16 @@ def text_to_speech():
             
             return send_file(temp_file_path, mimetype='audio/mpeg')
         else:
-            error_msg = f'ElevenLabs API error: {response.status_code} - {response.text}'
-            print(f"TTS Error: {error_msg}")
-            return jsonify({'error': error_msg}), 500
+            return jsonify({'error': f'ElevenLabs API error: {response.status_code}'}), 500
             
     except Exception as e:
-        error_msg = f"TTS error: {str(e)}"
-        print(error_msg)
-        return jsonify({'error': error_msg}), 500
+        print(f"TTS error: {e}")
+        return jsonify({'error': 'Failed to generate speech'}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
-
-@app.route('/api/tts-test', methods=['GET'])
-def tts_test():
-    """Test TTS configuration"""
-    ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
-    VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', '21m00Tcm4TlvDq8ikWAM')
-    
-    return jsonify({
-        'elevenlabs_configured': bool(ELEVENLABS_API_KEY),
-        'voice_id': VOICE_ID,
-        'api_key_length': len(ELEVENLABS_API_KEY) if ELEVENLABS_API_KEY else 0
-    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))

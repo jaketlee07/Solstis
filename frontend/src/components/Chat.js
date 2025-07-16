@@ -38,55 +38,26 @@ const Chat = ({ user, onLogout }) => {
   }, [user]);
 
   const speakText = async (text) => {
-    try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-      const response = await fetch(`${apiUrl}/api/tts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text })
-      });
-
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.play();
-        
-        // Clean up the URL after playing
-        audio.onended = () => {
-          URL.revokeObjectURL(audioUrl);
-        };
-      } else {
-        // Fallback to browser TTS if ElevenLabs fails
-        console.warn('ElevenLabs TTS failed, falling back to browser TTS');
-        if ('speechSynthesis' in window) {
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 0.9;
-          utterance.pitch = 1;
-          utterance.volume = 1;
-          
-          const voices = speechSynthesis.getVoices();
-          const preferredVoice = voices.find(voice => 
-            voice.name.includes('Samantha') || 
-            voice.name.includes('Alex') ||
-            voice.name.includes('Google')
-          );
-          if (preferredVoice) {
-            utterance.voice = preferredVoice;
-          }
-          
-          speechSynthesis.speak(utterance);
-        }
+    // Use browser TTS by default since ElevenLabs free tier is restricted
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      
+      const voices = speechSynthesis.getVoices();
+      const preferredVoice = voices.find(voice => 
+        voice.name.includes('Samantha') || 
+        voice.name.includes('Alex') ||
+        voice.name.includes('Google') ||
+        voice.name.includes('Karen') ||
+        voice.name.includes('Daniel')
+      );
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
       }
-    } catch (error) {
-      console.error('TTS error:', error);
-      // Fallback to browser TTS
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        speechSynthesis.speak(utterance);
-      }
+      
+      speechSynthesis.speak(utterance);
     }
   };
 
