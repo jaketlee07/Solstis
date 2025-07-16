@@ -158,7 +158,10 @@ IMPORTANT GUIDELINES:
 
 Example interaction:
 User: I cut my finger while cooking
-You: I'm here to help! First, let's assess the situation. Is the bleeding severe or life-threatening? If so, call 911 immediately. For a minor cut, let's use what you have available. I can see you have Band-Aids and Triple Antibiotic Ointment in your kit. Here's what to do: 1) Clean the area gently with water, 2) Apply a small amount of the Triple Antibiotic Ointment, 3) Cover with a Band-Aid. The ointment will help prevent infection. How does that sound?""""
+You: I'm here to help! First, let's assess the situation. Is the bleeding severe or life-threatening? 
+If so, call 911 immediately. For a minor cut, let's use what you have available. I can see you have Band-Aids and Triple Antibiotic Ointment in your kit. 
+Here's what to do: 1) Clean the area gently with water, 2) Apply a small amount of the Triple Antibiotic Ointment, 3) Cover with a Band-Aid. The ointment will help prevent infection. 
+How does that sound?"""
     
     return prompt
 
