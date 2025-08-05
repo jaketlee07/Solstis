@@ -302,7 +302,7 @@ def text_to_speech():
     try:
         # ElevenLabs API configuration
         ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
-        VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', 'pNInz6obpgDQGcFmaJgB')  # Adam voice - more reliable
+        VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', 'XcXEQzuLXRU9RcfWzEJt') 
         
         if not ELEVENLABS_API_KEY:
             return jsonify({'error': 'ElevenLabs API key not configured'}), 500
