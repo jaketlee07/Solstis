@@ -303,13 +303,16 @@ def text_to_speech():
     try:
         # ElevenLabs API configuration
         ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
-        VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID', 'XcXEQzuLXRU9RcfWzEJt') 
+        
+        # Use provided voice_id or fall back to environment variable or default
+        if not voice_id:
+            voice_id = os.getenv('ELEVENLABS_VOICE_ID', 'XcXEQzuLXRU9RcfWzEJt')
         
         if not ELEVENLABS_API_KEY:
             return jsonify({'error': 'ElevenLabs API key not configured'}), 500
         
         # ElevenLabs API call - Updated for current API
-        url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
         
         headers = {
             "Accept": "audio/mpeg",
