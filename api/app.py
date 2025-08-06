@@ -295,6 +295,7 @@ def text_to_speech():
     """Convert text to speech using ElevenLabs"""
     data = request.get_json()
     text = data.get('text')
+    voice_id = data.get('voice_id')  # Allow custom voice selection
     
     if not text:
         return jsonify({'error': 'No text provided'}), 400
@@ -342,6 +343,38 @@ def text_to_speech():
     except Exception as e:
         print(f"TTS error: {e}")
         return jsonify({'error': 'Failed to generate speech'}), 500
+
+@app.route('/api/voices', methods=['GET'])
+def get_voices():
+    """Get available ElevenLabs voices"""
+    try:
+        ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+        
+        if not ELEVENLABS_API_KEY:
+            return jsonify({'error': 'ElevenLabs API key not configured'}), 500
+        
+        url = "https://api.elevenlabs.io/v1/voices"
+        headers = {"xi-api-key": ELEVENLABS_API_KEY}
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            voices = response.json()
+            # Return simplified voice list
+            voice_list = []
+            for voice in voices.get('voices', []):
+                voice_list.append({
+                    'voice_id': voice['voice_id'],
+                    'name': voice['name'],
+                    'category': voice.get('category', 'unknown')
+                })
+            return jsonify({'voices': voice_list})
+        else:
+            return jsonify({'error': f'Failed to fetch voices: {response.status_code}'}), 500
+            
+    except Exception as e:
+        print(f"Error fetching voices: {e}")
+        return jsonify({'error': 'Failed to fetch voices'}), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

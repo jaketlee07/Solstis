@@ -11,7 +11,7 @@ services:
       - key: ELEVENLABS_API_KEY
         sync: false
       - key: ELEVENLABS_VOICE_ID
-        value: kdmDKE6EkgrWrrykO9Qt
+        value: XcXEQzuLXRU9RcfWzEJt
       - key: PYTHON_VERSION
         value: 3.9.18
 
