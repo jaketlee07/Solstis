@@ -368,6 +368,60 @@ def text_to_speech():
         print(f"TTS error: {e}")
         return jsonify({'error': 'Failed to generate speech'}), 500
 
+@app.route('/api/stt', methods=['POST'])
+def speech_to_text():
+    """Convert speech to text using ElevenLabs"""
+    try:
+        # Check if audio file was uploaded
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+        
+        audio_file = request.files['audio']
+        
+        if audio_file.filename == '':
+            return jsonify({'error': 'No audio file selected'}), 400
+        
+        # ElevenLabs API configuration
+        ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+        
+        if not ELEVENLABS_API_KEY:
+            return jsonify({'error': 'ElevenLabs API key not configured'}), 500
+        
+        # ElevenLabs Speech-to-Text API
+        url = "https://api.elevenlabs.io/v1/speech-to-text"
+        
+        headers = {
+            "xi-api-key": ELEVENLABS_API_KEY
+        }
+        
+        # Prepare the audio file for upload
+        files = {
+            'audio': (audio_file.filename, audio_file.read(), audio_file.content_type)
+        }
+        
+        # Optional parameters for better accuracy
+        data = {
+            'model_id': 'eleven_english_sts_v2',  # Best model for English STT
+            'language_code': 'en'
+        }
+        
+        response = requests.post(url, headers=headers, files=files, data=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            transcribed_text = result.get('text', '')
+            
+            return jsonify({
+                'text': transcribed_text,
+                'status': 'success'
+            })
+        else:
+            return jsonify({'error': f'ElevenLabs STT API error: {response.status_code}'}), 500
+            
+    except Exception as e:
+        print(f"STT error: {e}")
+        return jsonify({'error': 'Failed to transcribe speech'}), 500
+
 @app.route('/api/voices', methods=['GET'])
 def get_voices():
     """Get available ElevenLabs voices"""
