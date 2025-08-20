@@ -112,6 +112,16 @@
   font-family: monospace;
 }
 
+.status-indicator {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: #22c55e;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .voice-btn {
     width: 44px;
