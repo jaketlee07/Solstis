@@ -394,9 +394,18 @@ def speech_to_text():
             "xi-api-key": ELEVENLABS_API_KEY
         }
         
+        # Read file content once
+        file_content = audio_file.read()
+        file_size = len(file_content)
+        file_type = audio_file.content_type
+        
+        print(f"STT Debug: Sending to {url}")
+        print(f"STT Debug: File size: {file_size} bytes")
+        print(f"STT Debug: File type: {file_type}")
+        
         # Prepare the audio file for upload
         files = {
-            'audio': (audio_file.filename, audio_file.read(), audio_file.content_type)
+            'audio': (audio_file.filename, file_content, file_type)
         }
         
         # Optional parameters for better accuracy
@@ -405,28 +414,29 @@ def speech_to_text():
             'language_code': 'en'
         }
         
-        print(f"STT Debug: Sending to {url}")
-        print(f"STT Debug: File size: {len(audio_file.read())} bytes")
-        print(f"STT Debug: File type: {audio_file.content_type}")
-        
-        # Reset file pointer after reading
-        audio_file.seek(0)
-        
-        response = requests.post(url, headers=headers, files=files, data=data)
-        
-        print(f"STT Debug: Response status: {response.status_code}")
-        print(f"STT Debug: Response content: {response.text}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            transcribed_text = result.get('text', '')
+        try:
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
             
-            return jsonify({
-                'text': transcribed_text,
-                'status': 'success'
-            })
-        else:
-            return jsonify({'error': f'ElevenLabs STT API error: {response.status_code}'}), 500
+            print(f"STT Debug: Response status: {response.status_code}")
+            print(f"STT Debug: Response content: {response.text}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                transcribed_text = result.get('text', '')
+                
+                return jsonify({
+                    'text': transcribed_text,
+                    'status': 'success'
+                })
+            else:
+                error_msg = f'ElevenLabs STT API error: {response.status_code}'
+                if response.text:
+                    error_msg += f' - {response.text}'
+                return jsonify({'error': error_msg}), 500
+                
+        except requests.exceptions.RequestException as e:
+            print(f"STT Request error: {e}")
+            return jsonify({'error': f'Request failed: {str(e)}'}), 500
             
     except Exception as e:
         print(f"STT error: {e}")
@@ -468,6 +478,35 @@ def get_voices():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/test-stt', methods=['GET'])
+def test_stt():
+    """Test ElevenLabs STT API connection"""
+    try:
+        ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
+        
+        if not ELEVENLABS_API_KEY:
+            return jsonify({'error': 'ElevenLabs API key not configured'}), 500
+        
+        # Test the STT endpoint with a simple GET request
+        url = "https://api.elevenlabs.io/v1/speech-to-text"
+        headers = {"xi-api-key": ELEVENLABS_API_KEY}
+        
+        # This should return a 405 Method Not Allowed, which means the endpoint exists
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        return jsonify({
+            'status': 'STT endpoint accessible',
+            'response_code': response.status_code,
+            'api_key_configured': True,
+            'endpoint_url': url
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'STT test failed: {str(e)}',
+            'api_key_configured': bool(os.getenv('ELEVENLABS_API_KEY'))
+        }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
