@@ -387,7 +387,7 @@ def speech_to_text():
         if not ELEVENLABS_API_KEY:
             return jsonify({'error': 'ElevenLabs API key not configured'}), 500
         
-        # ElevenLabs Speech-to-Text API
+        # ElevenLabs Speech-to-Text API - Updated endpoint
         url = "https://api.elevenlabs.io/v1/speech-to-text"
         
         headers = {
@@ -405,7 +405,17 @@ def speech_to_text():
             'language_code': 'en'
         }
         
+        print(f"STT Debug: Sending to {url}")
+        print(f"STT Debug: File size: {len(audio_file.read())} bytes")
+        print(f"STT Debug: File type: {audio_file.content_type}")
+        
+        # Reset file pointer after reading
+        audio_file.seek(0)
+        
         response = requests.post(url, headers=headers, files=files, data=data)
+        
+        print(f"STT Debug: Response status: {response.status_code}")
+        print(f"STT Debug: Response content: {response.text}")
         
         if response.status_code == 200:
             result = response.json()

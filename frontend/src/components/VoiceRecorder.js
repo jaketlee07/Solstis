@@ -7,6 +7,7 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcriptionBuffer, setTranscriptionBuffer] = useState('');
   const [stream, setStream] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
     return () => {
@@ -24,6 +25,8 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     if (disabled) return;
     
     try {
+      setDebugInfo('Requesting microphone access...');
+      
       const audioStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -35,9 +38,20 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       
       setStream(audioStream);
       audioChunksRef.current = [];
+      setTranscriptionBuffer('');
+      setDebugInfo('Microphone access granted, starting recording...');
+      
+      // Check what MIME types are supported
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : 'audio/mp4';
+      
+      setDebugInfo(`Using MIME type: ${mimeType}`);
       
       const mediaRecorder = new MediaRecorder(audioStream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: mimeType
       });
       
       mediaRecorderRef.current = mediaRecorder;
@@ -45,26 +59,47 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          setDebugInfo(`Audio chunk received: ${event.data.size} bytes`);
         }
       };
       
+      mediaRecorder.onstart = () => {
+        setDebugInfo('Recording started, collecting audio chunks...');
+      };
+      
       mediaRecorder.onstop = async () => {
+        setDebugInfo('Recording stopped, processing audio...');
         if (audioChunksRef.current.length > 0) {
           await processAudioChunks();
         }
       };
       
-      // Start recording with 3-second chunks for real-time processing
-      mediaRecorder.start(3000);
+      mediaRecorder.onerror = (event) => {
+        setDebugInfo(`Recording error: ${event.error}`);
+        console.error('MediaRecorder error:', event.error);
+      };
+      
+      // Start recording with 2-second chunks for better processing
+      mediaRecorder.start(2000);
       setIsListening(true);
+      
+      // Test recording immediately
+      setTimeout(() => {
+        if (mediaRecorder.state === 'recording') {
+          setDebugInfo('Recording test: 2 seconds passed, should have audio chunks');
+        }
+      }, 2500);
       
     } catch (error) {
       console.error('Error starting recording:', error);
-      alert('Unable to access microphone. Please check permissions.');
+      setDebugInfo(`Error: ${error.message}`);
+      alert(`Unable to access microphone: ${error.message}`);
     }
   };
 
   const stopRecording = () => {
+    setDebugInfo('Stopping recording...');
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -81,18 +116,22 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     if (isProcessing || audioChunksRef.current.length === 0) return;
     
     setIsProcessing(true);
+    setDebugInfo('Processing audio chunks...');
     
     try {
       // Create audio blob from chunks
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const audioBlob = new Blob(audioChunksRef.current, { 
+        type: audioChunksRef.current[0]?.type || 'audio/webm' 
+      });
       
-      // Convert to WAV format for better ElevenLabs compatibility
-      const wavBlob = await convertToWav(audioBlob);
+      setDebugInfo(`Audio blob created: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
       
       // Send to ElevenLabs STT API
-      const transcript = await sendToElevenLabs(wavBlob);
+      const transcript = await sendToElevenLabs(audioBlob);
       
       if (transcript && transcript.trim()) {
+        setDebugInfo(`Transcript received: "${transcript}"`);
+        
         // Add to buffer and check if we have a complete sentence
         const newBuffer = transcriptionBuffer + ' ' + transcript;
         setTranscriptionBuffer(newBuffer);
@@ -101,10 +140,13 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         if (/[.!?]/.test(transcript)) {
           const completeSentence = newBuffer.trim();
           if (completeSentence) {
+            setDebugInfo(`Complete sentence detected: "${completeSentence}"`);
             onTranscript(completeSentence);
             setTranscriptionBuffer('');
           }
         }
+      } else {
+        setDebugInfo('No transcript received or empty transcript');
       }
       
       // Clear processed chunks
@@ -112,21 +154,17 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       
     } catch (error) {
       console.error('Error processing audio:', error);
+      setDebugInfo(`Processing error: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const convertToWav = async (audioBlob) => {
-    // For now, return the original blob
-    // In production, you might want to use a library like 'audio-recorder-polyfill'
-    // or convert to WAV format for better compatibility
-    return audioBlob;
-  };
-
   const sendToElevenLabs = async (audioBlob) => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+      setDebugInfo(`Sending to API: ${apiUrl}/api/stt`);
+      
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
       
@@ -135,14 +173,20 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         body: formData
       });
       
+      setDebugInfo(`API response status: ${response.status}`);
+      
       if (response.ok) {
         const result = await response.json();
+        setDebugInfo(`API response: ${JSON.stringify(result)}`);
         return result.text;
       } else {
-        throw new Error(`STT API error: ${response.status}`);
+        const errorText = await response.text();
+        setDebugInfo(`API error: ${response.status} - ${errorText}`);
+        throw new Error(`STT API error: ${response.status} - ${errorText}`);
       }
     } catch (error) {
       console.error('ElevenLabs STT error:', error);
+      setDebugInfo(`STT error: ${error.message}`);
       return null;
     }
   };
@@ -185,6 +229,13 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       {transcriptionBuffer && (
         <div className="transcription-buffer">
           <small>Listening: {transcriptionBuffer}</small>
+        </div>
+      )}
+      
+      {/* Debug info */}
+      {debugInfo && (
+        <div className="debug-info">
+          <small>Debug: {debugInfo}</small>
         </div>
       )}
     </div>
