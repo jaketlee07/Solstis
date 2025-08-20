@@ -398,14 +398,23 @@ def speech_to_text():
         file_content = audio_file.read()
         file_size = len(file_content)
         file_type = audio_file.content_type
+        file_name = audio_file.filename
         
         print(f"STT Debug: Sending to {url}")
+        print(f"STT Debug: File name: {file_name}")
         print(f"STT Debug: File size: {file_size} bytes")
         print(f"STT Debug: File type: {file_type}")
         
+        # Check if file size is reasonable
+        if file_size < 1000:  # Less than 1KB
+            return jsonify({'error': f'Audio file too small: {file_size} bytes. Please record for longer.'}), 400
+        
+        if file_size > 25000000:  # More than 25MB
+            return jsonify({'error': f'Audio file too large: {file_size} bytes. Please record for shorter duration.'}), 400
+        
         # Prepare the audio file for upload
         files = {
-            'audio': (audio_file.filename, file_content, file_type)
+            'audio': (file_name, file_content, file_type)
         }
         
         # Optional parameters for better accuracy
@@ -428,6 +437,19 @@ def speech_to_text():
                     'text': transcribed_text,
                     'status': 'success'
                 })
+            elif response.status_code == 400:
+                # Try to get more specific error information
+                error_detail = response.text
+                if 'format' in error_detail.lower() or 'unsupported' in error_detail.lower():
+                    return jsonify({
+                        'error': 'Audio format not supported. Please try recording again.',
+                        'details': f'File type: {file_type}, Size: {file_size} bytes'
+                    }), 400
+                else:
+                    return jsonify({
+                        'error': f'ElevenLabs STT API error: {response.status_code}',
+                        'details': error_detail
+                    }), 400
             else:
                 error_msg = f'ElevenLabs STT API error: {response.status_code}'
                 if response.text:

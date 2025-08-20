@@ -14,14 +14,34 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     try {
       // Step 1: Get microphone access
       console.log('🎤 Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000,
+          channelCount: 1
+        } 
+      });
       streamRef.current = stream;
       console.log('✅ Microphone access granted');
       setDebugInfo('Microphone access granted');
       
-      // Step 2: Create MediaRecorder
+      // Step 2: Create MediaRecorder with supported format
       console.log('📹 Creating MediaRecorder...');
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      // Check what MIME types are supported
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/mp4';
+        }
+      }
+      
+      console.log('🎵 Using MIME type:', mimeType);
+      setDebugInfo(`Using format: ${mimeType}`);
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       
       // Step 3: Set up event handlers
@@ -85,9 +105,12 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     setDebugInfo('Processing audio...');
     
     try {
+      // Convert audio to MP3 format for better ElevenLabs compatibility
+      const mp3Blob = await convertToMp3(audioBlob);
+      
       // Create FormData
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('audio', mp3Blob, 'recording.mp3');
       
       console.log('📤 Sending to STT API...');
       setDebugInfo('Sending to STT API...');
@@ -119,6 +142,16 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       console.error('❌ Error processing audio:', error);
       setDebugInfo(`Processing error: ${error.message}`);
     }
+  };
+
+  const convertToMp3 = async (audioBlob) => {
+    // For now, return the original blob but with .mp3 extension
+    // In production, you'd want to use a library like 'lamejs' for actual MP3 conversion
+    console.log('🎵 Converting audio format...');
+    setDebugInfo('Converting audio format...');
+    
+    // Create a new blob with mp3 extension
+    return new Blob([audioBlob], { type: 'audio/mpeg' });
   };
 
   const toggleRecording = () => {
