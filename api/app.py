@@ -412,16 +412,21 @@ def speech_to_text():
         if file_size > 25000000:  # More than 25MB
             return jsonify({'error': f'Audio file too large: {file_size} bytes. Please record for shorter duration.'}), 400
         
-        # Prepare the audio file for upload
+        # Prepare the audio file for upload - ElevenLabs expects 'file' parameter
         files = {
-            'audio': (file_name, file_content, file_type)
+            'file': (file_name, file_content, file_type)
         }
         
-        # Optional parameters for better accuracy
-        data = {
-            'model_id': 'eleven_english_sts_v2',  # Best model for English STT
-            'language_code': 'en'
-        }
+        # Optional parameters for better accuracy - these might not be needed
+        data = {}
+        
+        # Only add model_id if it's supported
+        # data['model_id'] = 'eleven_english_sts_v2'
+        # data['language_code'] = 'en'
+        
+        print(f"STT Debug: Files being sent: {files}")
+        print(f"STT Debug: Data being sent: {data}")
+        print(f"STT Debug: Headers being sent: {headers}")
         
         try:
             response = requests.post(url, headers=headers, files=files, data=data, timeout=30)

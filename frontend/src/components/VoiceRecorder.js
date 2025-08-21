@@ -108,9 +108,9 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       // Convert audio to MP3 format for better ElevenLabs compatibility
       const mp3Blob = await convertToMp3(audioBlob);
       
-      // Create FormData
+      // Create FormData - ElevenLabs expects 'file' parameter
       const formData = new FormData();
-      formData.append('audio', mp3Blob, 'recording.mp3');
+      formData.append('file', mp3Blob, 'recording.mp3');
       
       console.log('📤 Sending to STT API...');
       setDebugInfo('Sending to STT API...');
