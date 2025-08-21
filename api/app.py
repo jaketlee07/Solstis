@@ -373,10 +373,13 @@ def speech_to_text():
     """Convert speech to text using ElevenLabs"""
     try:
         # Check if audio file was uploaded
-        if 'audio' not in request.files:
+        print(f"STT Debug: Received files: {list(request.files.keys())}")
+        print(f"STT Debug: Request content type: {request.content_type}")
+        
+        if 'file' not in request.files:
             return jsonify({'error': 'No audio file provided'}), 400
         
-        audio_file = request.files['audio']
+        audio_file = request.files['file']
         
         if audio_file.filename == '':
             return jsonify({'error': 'No audio file selected'}), 400
