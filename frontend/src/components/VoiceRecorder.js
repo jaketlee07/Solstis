@@ -4,14 +4,18 @@ import './VoiceRecorder.css';
 const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) => {
   const [debugInfo, setDebugInfo] = useState('Click to start');
   const [isRecording, setIsRecording] = useState(false);
-  const [hasProcessedChunk, setHasProcessedChunk] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const audioChunksRef = useRef([]);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
+  const silenceTimerRef = useRef(null);
+  const lastChunkTimeRef = useRef(0);
 
   const startRecording = async () => {
     console.log('🔴 Starting recording...');
     setDebugInfo('Starting recording...');
-    setHasProcessedChunk(false);
+    audioChunksRef.current = [];
+    lastChunkTimeRef.current = Date.now();
     
     try {
       // Step 1: Get microphone access
@@ -48,14 +52,17 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       
       // Step 3: Set up event handlers
       mediaRecorder.ondataavailable = (event) => {
-        console.log('📦 Audio data available:', event.data.size, 'bytes');
-        setDebugInfo(`Audio chunk: ${event.data.size} bytes`);
-        
-        // Only process if we haven't already processed a chunk and it's large enough
-        if (!hasProcessedChunk && event.data.size > 2000) { // At least 2KB
-          processAudioChunk(event.data);
-        } else if (event.data.size <= 2000) {
-          setDebugInfo(`Chunk too small (${event.data.size} bytes), waiting for more...`);
+        if (event.data.size > 0) {
+          console.log('📦 Audio chunk received:', event.data.size, 'bytes');
+          audioChunksRef.current.push(event.data);
+          lastChunkTimeRef.current = Date.now();
+          
+          // Update debug info with accumulated size
+          const totalSize = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
+          setDebugInfo(`Recording... ${audioChunksRef.current.length} chunks, ${totalSize} bytes total`);
+          
+          // Start silence detection timer
+          startSilenceDetection();
         }
       };
       
@@ -68,9 +75,14 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       
       mediaRecorder.onstop = () => {
         console.log('⏹️ Recording stopped');
-        setDebugInfo('Recording stopped');
+        setDebugInfo('Recording stopped, processing audio...');
         setIsRecording(false);
         setIsListening(false);
+        
+        // Process all accumulated audio chunks
+        if (audioChunksRef.current.length > 0) {
+          processCompleteAudio();
+        }
       };
       
       mediaRecorder.onerror = (event) => {
@@ -78,9 +90,9 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         setDebugInfo(`Error: ${event.error}`);
       };
       
-      // Step 4: Start recording with 6-second chunks for better quality
+      // Step 4: Start recording with 2-second chunks for continuous listening
       console.log('🚀 Starting MediaRecorder...');
-      mediaRecorder.start(6000);
+      mediaRecorder.start(2000);
       
     } catch (error) {
       console.error('❌ Error starting recording:', error);
@@ -89,9 +101,29 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     }
   };
 
+  const startSilenceDetection = () => {
+    // Clear any existing timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    
+    // Set timer for 2 seconds of silence
+    silenceTimerRef.current = setTimeout(() => {
+      console.log('🔇 Silence detected, stopping recording...');
+      setDebugInfo('Silence detected, stopping recording...');
+      stopRecording();
+    }, 2000);
+  };
+
   const stopRecording = () => {
     console.log('🛑 Stopping recording...');
     setDebugInfo('Stopping recording...');
+    
+    // Clear silence timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
     
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -104,28 +136,28 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     
     setIsRecording(false);
     setIsListening(false);
-    setHasProcessedChunk(false);
   };
 
-  const processAudioChunk = async (audioBlob) => {
-    if (hasProcessedChunk) {
-      console.log('🔄 Already processed a chunk, skipping...');
-      return;
-    }
+  const processCompleteAudio = async () => {
+    if (isProcessing || audioChunksRef.current.length === 0) return;
     
-    console.log('🔄 Processing audio chunk...');
-    setDebugInfo('Processing audio...');
-    setHasProcessedChunk(true);
+    setIsProcessing(true);
+    setDebugInfo('Processing complete audio...');
     
     try {
-      // Stop recording immediately after getting the first chunk
-      stopRecording();
+      // Combine all audio chunks into one blob
+      const totalSize = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
+      console.log(`🔄 Processing ${audioChunksRef.current.length} chunks, total size: ${totalSize} bytes`);
       
-      // Send the original audio blob without conversion
+      const completeAudioBlob = new Blob(audioChunksRef.current, { 
+        type: audioChunksRef.current[0]?.type || 'audio/webm' 
+      });
+      
+      // Create FormData
       const formData = new FormData();
-      formData.append('file', audioBlob, 'recording.webm');
+      formData.append('file', completeAudioBlob, 'recording.webm');
       
-      console.log('📤 Sending to STT API...');
+      console.log('📤 Sending complete audio to STT API...');
       setDebugInfo('Sending to STT API...');
       
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -151,9 +183,14 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         setDebugInfo(`STT Error: ${response.status} - ${errorText}`);
       }
       
+      // Clear processed chunks
+      audioChunksRef.current = [];
+      
     } catch (error) {
       console.error('❌ Error processing audio:', error);
       setDebugInfo(`Processing error: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -169,12 +206,14 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
 
   const getButtonIcon = () => {
     if (disabled) return '🔇';
+    if (isProcessing) return '⏳';
     if (isRecording) return '⏹️';
     return '🎤';
   };
 
   const getButtonTitle = () => {
     if (disabled) return 'Voice input disabled';
+    if (isProcessing) return 'Processing audio...';
     if (isRecording) return 'Click to stop recording';
     return 'Click to start voice input';
   };
@@ -188,6 +227,9 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
     };
   }, []);
 
@@ -195,10 +237,10 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     <div className="voice-recorder-container">
       <button
         type="button"
-        className={`voice-btn ${isRecording ? 'listening' : ''} ${disabled ? 'disabled' : ''}`}
+        className={`voice-btn ${isRecording ? 'listening' : ''} ${disabled ? 'disabled' : ''} ${isProcessing ? 'processing' : ''}`}
         onClick={toggleRecording}
         title={getButtonTitle()}
-        disabled={disabled}
+        disabled={disabled || isProcessing}
       >
         {getButtonIcon()}
       </button>
@@ -211,7 +253,7 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       {/* Status indicator */}
       <div className="status-indicator">
         <small>
-          {isRecording ? '🔴 Recording...' : '⚪ Ready'}
+          {isProcessing ? '⏳ Processing...' : isRecording ? '🔴 Recording...' : '⚪ Ready'}
         </small>
       </div>
     </div>
