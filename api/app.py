@@ -420,12 +420,10 @@ def speech_to_text():
             'file': (file_name, file_content, file_type)
         }
         
-        # Optional parameters for better accuracy - these might not be needed
-        data = {}
-        
-        # Only add model_id if it's supported
-        # data['model_id'] = 'eleven_english_sts_v2'
-        # data['language_code'] = 'en'
+        # Required parameters for ElevenLabs STT
+        data = {
+            'model_id': 'eleven_english_sts_v2'  # Required field
+        }
         
         print(f"STT Debug: Files being sent: {files}")
         print(f"STT Debug: Data being sent: {data}")
