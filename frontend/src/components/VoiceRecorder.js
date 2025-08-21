@@ -51,9 +51,11 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         console.log('📦 Audio data available:', event.data.size, 'bytes');
         setDebugInfo(`Audio chunk: ${event.data.size} bytes`);
         
-        // Only process if we haven't already processed a chunk
-        if (!hasProcessedChunk && event.data.size > 0) {
+        // Only process if we haven't already processed a chunk and it's large enough
+        if (!hasProcessedChunk && event.data.size > 2000) { // At least 2KB
           processAudioChunk(event.data);
+        } else if (event.data.size <= 2000) {
+          setDebugInfo(`Chunk too small (${event.data.size} bytes), waiting for more...`);
         }
       };
       
@@ -76,9 +78,9 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         setDebugInfo(`Error: ${event.error}`);
       };
       
-      // Step 4: Start recording with 4-second chunks for better quality
+      // Step 4: Start recording with 6-second chunks for better quality
       console.log('🚀 Starting MediaRecorder...');
-      mediaRecorder.start(4000);
+      mediaRecorder.start(6000);
       
     } catch (error) {
       console.error('❌ Error starting recording:', error);

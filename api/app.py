@@ -409,7 +409,7 @@ def speech_to_text():
         print(f"STT Debug: File type: {file_type}")
         
         # Check if file size is reasonable
-        if file_size < 1000:  # Less than 1KB
+        if file_size < 2000:  # Less than 2KB
             return jsonify({'error': f'Audio file too small: {file_size} bytes. Please record for longer.'}), 400
         
         if file_size > 25000000:  # More than 25MB
