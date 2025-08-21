@@ -422,7 +422,7 @@ def speech_to_text():
         
         # Required parameters for ElevenLabs STT
         data = {
-            'model_id': 'eleven_english_sts_v2'  # Required field
+            'model_id': 'scribe_v1'  # Valid model ID for ElevenLabs STT
         }
         
         print(f"STT Debug: Files being sent: {files}")
