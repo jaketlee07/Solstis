@@ -415,6 +415,10 @@ def speech_to_text():
         if file_size > 25000000:  # More than 25MB
             return jsonify({'error': f'Audio file too large: {file_size} bytes. Please record for shorter duration.'}), 400
         
+        # Validate file type
+        if not file_type or not file_type.startswith('audio/'):
+            return jsonify({'error': f'Invalid file type: {file_type}. Must be an audio file.'}), 400
+        
         # Prepare the audio file for upload - ElevenLabs expects 'file' parameter
         files = {
             'file': (file_name, file_content, file_type)

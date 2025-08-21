@@ -4,12 +4,14 @@ import './VoiceRecorder.css';
 const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) => {
   const [debugInfo, setDebugInfo] = useState('Click to start');
   const [isRecording, setIsRecording] = useState(false);
+  const [hasProcessedChunk, setHasProcessedChunk] = useState(false);
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
 
   const startRecording = async () => {
     console.log('🔴 Starting recording...');
     setDebugInfo('Starting recording...');
+    setHasProcessedChunk(false);
     
     try {
       // Step 1: Get microphone access
@@ -29,7 +31,7 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       // Step 2: Create MediaRecorder with supported format
       console.log('📹 Creating MediaRecorder...');
       
-      // Check what MIME types are supported
+      // Use WebM format which is more reliable
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'audio/webm';
@@ -49,8 +51,10 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         console.log('📦 Audio data available:', event.data.size, 'bytes');
         setDebugInfo(`Audio chunk: ${event.data.size} bytes`);
         
-        // Process this chunk immediately
-        processAudioChunk(event.data);
+        // Only process if we haven't already processed a chunk
+        if (!hasProcessedChunk && event.data.size > 0) {
+          processAudioChunk(event.data);
+        }
       };
       
       mediaRecorder.onstart = () => {
@@ -72,9 +76,9 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
         setDebugInfo(`Error: ${event.error}`);
       };
       
-      // Step 4: Start recording with 3-second chunks
+      // Step 4: Start recording with 4-second chunks for better quality
       console.log('🚀 Starting MediaRecorder...');
-      mediaRecorder.start(3000);
+      mediaRecorder.start(4000);
       
     } catch (error) {
       console.error('❌ Error starting recording:', error);
@@ -98,19 +102,26 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
     
     setIsRecording(false);
     setIsListening(false);
+    setHasProcessedChunk(false);
   };
 
   const processAudioChunk = async (audioBlob) => {
+    if (hasProcessedChunk) {
+      console.log('🔄 Already processed a chunk, skipping...');
+      return;
+    }
+    
     console.log('🔄 Processing audio chunk...');
     setDebugInfo('Processing audio...');
+    setHasProcessedChunk(true);
     
     try {
-      // Convert audio to MP3 format for better ElevenLabs compatibility
-      const mp3Blob = await convertToMp3(audioBlob);
+      // Stop recording immediately after getting the first chunk
+      stopRecording();
       
-      // Create FormData - ElevenLabs expects 'file' parameter
+      // Send the original audio blob without conversion
       const formData = new FormData();
-      formData.append('file', mp3Blob, 'recording.mp3');
+      formData.append('file', audioBlob, 'recording.webm');
       
       console.log('📤 Sending to STT API...');
       setDebugInfo('Sending to STT API...');
@@ -142,16 +153,6 @@ const VoiceRecorder = ({ onTranscript, isListening, setIsListening, disabled }) 
       console.error('❌ Error processing audio:', error);
       setDebugInfo(`Processing error: ${error.message}`);
     }
-  };
-
-  const convertToMp3 = async (audioBlob) => {
-    // For now, return the original blob but with .mp3 extension
-    // In production, you'd want to use a library like 'lamejs' for actual MP3 conversion
-    console.log('🎵 Converting audio format...');
-    setDebugInfo('Converting audio format...');
-    
-    // Create a new blob with mp3 extension
-    return new Blob([audioBlob], { type: 'audio/mpeg' });
   };
 
   const toggleRecording = () => {
