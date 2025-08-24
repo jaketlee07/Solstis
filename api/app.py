@@ -621,6 +621,113 @@ def test_stt():
             'api_key_configured': bool(os.getenv('ELEVENLABS_API_KEY'))
         }), 500
 
+@app.route('/api/analyze-image', methods=['POST'])
+def analyze_image():
+    """Analyze uploaded image using OpenAI Vision API"""
+    try:
+        # Check if image file was uploaded
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        image_file = request.files['image']
+        
+        if image_file.filename == '':
+            return jsonify({'error': 'No image file selected'}), 400
+        
+        # Check file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        file_extension = image_file.filename.rsplit('.', 1)[1].lower() if '.' in image_file.filename else ''
+        
+        if file_extension not in allowed_extensions:
+            return jsonify({'error': f'Invalid file type. Allowed: {", ".join(allowed_extensions)}'}), 400
+        
+        # Check file size (max 20MB for OpenAI Vision API)
+        image_file.seek(0, 2)  # Seek to end
+        file_size = image_file.tell()
+        image_file.seek(0)  # Reset to beginning
+        
+        if file_size > 20 * 1024 * 1024:  # 20MB
+            return jsonify({'error': 'Image file too large. Maximum size: 20MB'}), 400
+        
+        # Read image data
+        image_data = image_file.read()
+        
+        # OpenAI API configuration
+        OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+        
+        if not OPENAI_API_KEY:
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        # Prepare image for OpenAI Vision API
+        import base64
+        
+        # Encode image to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # Get user context from request
+        user_context = request.form.get('user_context', '')
+        kit_type = request.form.get('kit_type', 'standard')
+        
+        # Create system prompt for image analysis
+        system_prompt = f"""You are Solstis, a medical AI assistant analyzing an uploaded image. 
+
+KIT TYPE: {kit_type}
+
+Your role:
+• Analyze the image for medical conditions, injuries, or symptoms
+• Provide clear, actionable first aid advice
+• Reference items available in the user's kit when possible
+• Be specific about what you see in the image
+• If the image shows a true emergency, recommend calling 9-1-1
+• If it's treatable with first aid, provide step-by-step instructions
+• Be professional but reassuring
+
+IMPORTANT: Only analyze what you can clearly see in the image. If something is unclear, ask for clarification."""
+        
+        # Call OpenAI Vision API
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Please analyze this image and provide medical advice. User context: {user_context}"
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/{file_extension};base64,{image_base64}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=1000,
+                temperature=0.7
+            )
+            
+            analysis = response.choices[0].message.content
+            
+            return jsonify({
+                'analysis': analysis,
+                'status': 'success'
+            })
+            
+        except Exception as e:
+            print(f"OpenAI Vision API error: {e}")
+            return jsonify({'error': f'Image analysis failed: {str(e)}'}), 500
+            
+    except Exception as e:
+        print(f"Image analysis error: {e}")
+        return jsonify({'error': 'Failed to analyze image'}), 500
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port, debug=True) 

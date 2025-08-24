@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import VoiceRecorder from './VoiceRecorder';
+import ImageUploader from './ImageUploader';
 import MessageList from './MessageList';
 import './Chat.css';
 
@@ -163,6 +164,28 @@ const Chat = ({ user, onLogout }) => {
     sendMessage(transcript);
   };
 
+  const handleImageAnalysis = (analysis) => {
+    // Add the image analysis as a user message
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: '[Image uploaded for analysis]',
+      timestamp: new Date()
+    };
+
+    const assistantMessage = {
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: analysis,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage, assistantMessage]);
+    
+    // Speak the analysis
+    speakText(analysis);
+  };
+
   const handleClear = async () => {
     try {
       const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
@@ -212,6 +235,13 @@ const Chat = ({ user, onLogout }) => {
         <MessageList messages={messages} isLoading={isLoading} />
 
         <div className="chat-input-container">
+          {/* Image Upload Section */}
+          <ImageUploader
+            onAnalysis={handleImageAnalysis}
+            kitType={user.kitType}
+            disabled={isLoading}
+          />
+          
           <form onSubmit={handleSubmit} className="chat-form">
             <input
               type="text"
