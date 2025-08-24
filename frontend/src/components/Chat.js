@@ -184,6 +184,20 @@ const Chat = ({ user, onLogout }) => {
     
     // Speak the analysis
     speakText(analysis);
+    
+    // Update the conversation context for future messages
+    if (user.name in conversations) {
+      conversations[user.name]['messages'].push({
+        'role': 'user',
+        'content': '[Image uploaded for analysis]',
+        'timestamp': new Date().toISOString()
+      });
+      conversations[user.name]['messages'].push({
+        'role': 'assistant',
+        'content': analysis,
+        'timestamp': new Date().toISOString()
+      });
+    }
   };
 
   const handleClear = async () => {
